@@ -242,8 +242,8 @@ static int bh;               /* bar height */
 static int lrpad;            /* sum of left and right padding for text */
 static int (*xerrorxlib)(Display *, XErrorEvent *);
 static unsigned int numlockmask = 0;
-static void (*handler[LASTEvent]) (XEvent *) = {
-	[ButtonPress] = buttonpress,
+static void (*handler[LASTEvent]) (XEvent *) = {  // event handler defined.
+	[ButtonPress] = buttonpress, // type maps to function
 	[ClientMessage] = clientmessage,
 	[ConfigureRequest] = configurerequest,
 	[ConfigureNotify] = configurenotify,
@@ -430,7 +430,7 @@ buttonpress(XEvent *e)
 		selmon = m;
 		focus(NULL);
 	}
-	if (ev->window == selmon->barwin) {
+	if (ev->window == selmon->barwin) { // if you pressed the bar window, set selection back to the window you were on?
 		i = x = 0;
 		do
 			x += TEXTW(tags[i]);
@@ -444,7 +444,7 @@ buttonpress(XEvent *e)
 			click = ClkStatusText;
 		else
 			click = ClkWinTitle;
-	} else if ((c = wintoclient(ev->window))) {
+	} else if ((c = wintoclient(ev->window))) { // if not, we will find what client we clicked on
 		focus(c);
 		restack(selmon);
 		XAllowEvents(dpy, ReplayPointer, CurrentTime);
@@ -1029,7 +1029,7 @@ killclient(const Arg *arg)
 }
 
 void
-manage(Window w, XWindowAttributes *wa)
+manage(Window w, XWindowAttributes *wa) // handles window properties and positioning. Look here to solve issues regarding window placement, windows not floating, etc.
 {
 	Client *c, *t = NULL;
 	Window trans = None;
@@ -1380,13 +1380,15 @@ restack(Monitor *m)
 }
 
 void
-run(void)
+run(void) //main X handler
 {
 	XEvent ev;
+
 	/* main event loop */
-	XSync(dpy, False);
-	while (running && !XNextEvent(dpy, &ev))
-		if (handler[ev.type])
+	
+	XSync(dpy, False); // dpy is display.
+	while (running && !XNextEvent(dpy, &ev)) //find next event in the queue being executed. Takes that event and stores it in ev (defined on 1386)
+		if (handler[ev.type]) // if handler exists for that event type.
 			handler[ev.type](&ev); /* call handler */
 }
 
@@ -2155,8 +2157,8 @@ main(int argc, char *argv[])
 	if (pledge("stdio rpath proc exec", NULL) == -1)
 		die("pledge");
 #endif /* __OpenBSD__ */
-	scan();
-	run();
+	scan(); // see if other applications are already running. If there are, load them into dwm.
+	run(); // importaint
 	cleanup();
 	XCloseDisplay(dpy);
 	return EXIT_SUCCESS;
