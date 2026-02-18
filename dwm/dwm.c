@@ -430,7 +430,9 @@ buttonpress(XEvent *e)
 		selmon = m;
 		focus(NULL);
 	}
-	if (ev->window == selmon->barwin) { // if you pressed the bar window, set selection back to the window you were on?
+	if (ev->window == selmon->barwin) { 
+		// if you pressed the bar window, set selection back to the window you were on.
+		// ClkLtSymbol,ClkTagBar, and so on are enums.
 		i = x = 0;
 		do
 			x += TEXTW(tags[i]);
@@ -1380,14 +1382,14 @@ restack(Monitor *m)
 }
 
 void
-run(void) //main X handler
+run(void)
 {
 	XEvent ev;
 
 	/* main event loop */
 	
 	XSync(dpy, False); // dpy is display.
-	while (running && !XNextEvent(dpy, &ev)) //find next event in the queue being executed. Takes that event and stores it in ev (defined on 1386)
+	while (running && !XNextEvent(dpy, &ev)) //find next event in the queue being executed. Takes that event and stores it in ev
 		if (handler[ev.type]) // if handler exists for that event type.
 			handler[ev.type](&ev); /* call handler */
 }
