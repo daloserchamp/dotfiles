@@ -1,0 +1,27 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "gdb dwm",
+      "type": "cppdbg",
+      "request": "launch",
+      "program": "${workspaceFolder}/dwm",
+      "args": [],
+      "stopAtEntry": false,
+      "cwd": "${workspaceFolder}",
+      "environment": [
+        {"name": "DISPLAY", "value": ":2"}
+      ],
+      "externalConsole": false,
+      "MIMode": "gdb",
+      "setupCommands": [
+        {
+          "description": "Enable pretty-printing for gdb",
+          "text": "-enable-pretty-printing",
+          "ignoreFailures": true
+        }
+      ], // nested display
+      "miDebuggerPath": "/usr/bin/gdb"
+    }
+  ]
+}
