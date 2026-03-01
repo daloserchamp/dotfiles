@@ -243,20 +243,20 @@ static int lrpad;            /* sum of left and right padding for text */
 static int (*xerrorxlib)(Display *, XErrorEvent *);
 static unsigned int numlockmask = 0;
 static void (*handler[LASTEvent]) (XEvent *) = {  // event handler defined.
-	[ButtonPress] = buttonpress, // type maps to function
-	[ClientMessage] = clientmessage,
-	[ConfigureRequest] = configurerequest,
-	[ConfigureNotify] = configurenotify,
-	[DestroyNotify] = destroynotify,
-	[EnterNotify] = enternotify,
-	[Expose] = expose,
-	[FocusIn] = focusin,
-	[KeyPress] = keypress,
-	[MappingNotify] = mappingnotify,
-	[MapRequest] = maprequest,
-	[MotionNotify] = motionnotify,
-	[PropertyNotify] = propertynotify,
-	[UnmapNotify] = unmapnotify
+	[ButtonPress] = buttonpress, //4, type maps to function
+	[ClientMessage] = clientmessage, //33, 
+	[ConfigureRequest] = configurerequest, //23, 
+	[ConfigureNotify] = configurenotify, //22, 
+	[DestroyNotify] = destroynotify, //17, 
+	[EnterNotify] = enternotify, //7, 
+	[Expose] = expose, //12, first event to be called when dwm starts main loop
+	[FocusIn] = focusin, //9, 
+	[KeyPress] = keypress, //2, 
+	[MappingNotify] = mappingnotify, //34, 
+	[MapRequest] = maprequest, //20,
+	[MotionNotify] = motionnotify, //6, 
+	[PropertyNotify] = propertynotify, //28,
+	[UnmapNotify] = unmapnotify //18,
 };
 static Atom wmatom[WMLast], netatom[NetLast];
 static int running = 1;
@@ -2160,7 +2160,7 @@ main(int argc, char *argv[])
 		die("pledge");
 #endif /* __OpenBSD__ */
 	scan(); // see if other applications are already running. If there are, load them into dwm.
-	run(); // importaint
+	run(); // important
 	cleanup();
 	XCloseDisplay(dpy);
 	return EXIT_SUCCESS;
