@@ -1,4 +1,4 @@
 # !/bin/bash
 make clean
 make
-./dwm
+DISPLAY=:2 dwm
