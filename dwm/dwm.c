@@ -243,7 +243,7 @@ static int lrpad;            /* sum of left and right padding for text */
 static int (*xerrorxlib)(Display *, XErrorEvent *);
 static unsigned int numlockmask = 0;
 static void (*handler[LASTEvent]) (XEvent *) = {  // event handler defined.
-	[ButtonPress] = buttonpress, //4, type maps to function
+	[ButtonPress] = buttonpress, //4, when mouse button is pressed
 	[ClientMessage] = clientmessage, //33, 
 	[ConfigureRequest] = configurerequest, //23, 
 	[ConfigureNotify] = configurenotify, //22, 
@@ -778,12 +778,12 @@ enternotify(XEvent *e)
 }
 
 void
-expose(XEvent *e)
+expose(XEvent *e) // called when the contents if the window regions have been lost prob?
 {
 	Monitor *m;
 	XExposeEvent *ev = &e->xexpose;
 
-	if (ev->count == 0 && (m = wintomon(ev->window)))
+	if (ev->count == 0 && (m = wintomon(ev->window))) //if the exposed window is the root window? No more expose events follow afterwards
 		drawbar(m);
 }
 
