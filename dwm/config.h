@@ -62,7 +62,10 @@ static const Layout layouts[] = {
 /* commands */
 static char dmenumon[2] = "0"; /* component of dmenucmd, manipulated in spawn() */
 static const char *dmenucmd[] = { "rofi", "-show", "drun", NULL};
-static const char *termcmd[]  = { "alacritty","--working-directory", "~", NULL };
+static const char *termcmd[]  = { "alacritty","--working-directory", "/home/jackson/", NULL };
+static const char *termcmd2[]  = { "alacritty","--working-directory", "/home/jackson/art/dotfiles/", NULL };
+static const char *termcmd3[]  = { "alacritty","--working-directory", "/", NULL };
+
 static const char *setdvorak[]  = { "/home/jackson/.config/scripts/KeymapSetter.sh", "0", NULL };
 static const char *setqwerty[]  = { "/home/jackson/.config/scripts/KeymapSetter.sh", "2", NULL };
 static const char *flameshot[]  = { "flameshot", "gui", NULL };
@@ -72,6 +75,8 @@ static const Key keys[] = {
 	/* modifier                     key        function        argument */
 	{ MODKEY,                       XK_a,      spawn,          {.v = dmenucmd } },
 	{ MODKEY,             					XK_Return, spawn,      {.v = termcmd} },
+	{ MODKEY|ShiftMask,             					XK_Return, spawn,      {.v = termcmd2} },
+	{ MODKEY|ControlMask,             					XK_Return, spawn,      {.v = termcmd3} },
 	{ MODKEY,                       XK_b,      togglebar,      {0} },
 	{ MODKEY,                       XK_h,      focusstack,     {.i = +1 } },
 	{ MODKEY,                       XK_n,      focusstack,     {.i = -1 } },
@@ -104,7 +109,6 @@ static const Key keys[] = {
 	{ MODKEY|ControlMask,           XK_p,      quit,           {0} },
 	{ MODKEY|ControlMask,            XK_m,      spawn,           {.v = setqwerty}},
 	{ MODKEY|ShiftMask,            XK_m,      spawn,           {.v = setdvorak}},
-
 	{ MODKEY|ShiftMask,            XK_s,      spawn,           {.v = flameshot}},
 	{ MODKEY|ShiftMask,            XK_apostrophe,      spawn,           {.v = gpurecorder}},
 	{0, XF86XK_AudioMute,	spawn, {.v = mute_vol}},

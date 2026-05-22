@@ -36,6 +36,8 @@
 #include <X11/Xlib.h>
 #include <X11/Xproto.h>
 #include <X11/Xutil.h>
+#include <time.h>
+#include <sys/select.h>
 #ifdef XINERAMA
 #include <X11/extensions/Xinerama.h>
 #endif /* XINERAMA */
@@ -141,7 +143,6 @@ typedef struct {
 } Rule;
 
 /* custom functions*/
-static void alacritty();
 
 /* function declarations */
 static void applyrules(Client *c);
@@ -238,7 +239,7 @@ static void zoom(const Arg *arg);
 
 /* variables */
 static const char broken[] = "broken";
-static char stext[256];
+char stext[256];
 static int screen;
 static int sw, sh;           /* X display screen geometry width, height */
 static int bh;               /* bar height */
@@ -711,11 +712,19 @@ drawbar(Monitor *m)
 	if (!m->showbar)
 		return;
 
+	char datetext[256];
+	time_t rawtime;
+	struct tm *timeinfo;
+
+	time(&rawtime);
+	timeinfo = localtime(&rawtime);
+
+	strftime(datetext, sizeof(datetext), "%a %b %d %T", timeinfo);
 	/* draw status first so it can be overdrawn by tags later */
 	if (m == selmon) { /* status is only drawn on selected monitor */
 		drw_setscheme(drw, scheme[SchemeNorm]);
-		tw = TEXTW(stext) - lrpad + 2; /* 2px right padding */
-		drw_text(drw, m->ww - tw, 0, tw, bh, 0, stext, 0);
+		tw = TEXTW(datetext) - lrpad + 2; /* 2px right padding */
+		drw_text(drw, m->ww - tw, 0, tw, bh, 0, datetext, 0);
 	}
 
 	for (c = m->clients; c; c = c->next) {
@@ -741,7 +750,7 @@ drawbar(Monitor *m)
 	if ((w = m->ww - tw - x) > bh) {
 		if (m->sel) {
 			drw_setscheme(drw, scheme[m == selmon ? SchemeSel : SchemeNorm]);
-			drw_text(drw, x, 0, w, bh, lrpad / 2, m->sel->name, 0);
+			//drw_text(drw, x, 0, w, bh, lrpad / 2, m->sel->name, 0);
 			if (m->sel->isfloating)
 				drw_rect(drw, x + boxs, boxs, boxw, boxw, m->sel->isfixed, 0);
 		} else {
@@ -1384,21 +1393,64 @@ restack(Monitor *m)
 	while (XCheckMaskEvent(dpy, EnterWindowMask, &ev));
 }
 
+static double
+gettime(void)
+{
+	struct timespec ts;
+
+	clock_gettime(CLOCK_MONOTONIC, &ts);
+
+	return ts.tv_sec + ts.tv_nsec / 1e9;
+}
+
 void
 run(void)
 {
 	XEvent ev;
-
-	/* main event loop */
-	
 	XSync(dpy, False); // dpy is display.
-	while (running && !XNextEvent(dpy, &ev)) //find next event in the queue being executed. Takes that event and stores it in ev
-		if (handler[ev.type]){ // if handler exists for that event type.
-			handler[ev.type](&ev); /* call handler */
-			printf("%i, ", ev.type);
-		}
-}
 
+	int xfd;
+	double next_draw;
+
+	xfd = ConnectionNumber(dpy);
+	next_draw = gettime() + 1.0;
+	while (running) {
+		double now = gettime();
+		double timeout = next_draw - now;
+
+		if (timeout < 0)
+			timeout = 0;
+
+		fd_set fds;
+		FD_ZERO(&fds);
+		FD_SET(xfd, &fds);
+
+		struct timeval tv;
+		tv.tv_sec = (int)timeout;
+		tv.tv_usec = (timeout - tv.tv_sec) * 1000000;
+
+		select(xfd + 1, &fds, NULL, NULL, &tv);
+		while (XPending(dpy)) {
+			XNextEvent(dpy, &ev);
+
+			if (handler[ev.type]) handler[ev.type](&ev);
+		
+			now = gettime();
+
+			if (now >= next_draw) {
+				drawbars();
+				next_draw += 1.0;
+			}
+		}
+
+		now = gettime();
+
+		if (now >= next_draw) {
+			drawbars();
+			next_draw += 1.0;
+		}
+	}
+}
 void
 scan(void)
 {
@@ -2015,7 +2067,7 @@ void
 updatestatus(void)
 {
 	if (!gettextprop(root, XA_WM_NAME, stext, sizeof(stext)))
-		strcpy(stext, "dwm-"VERSION);
+		strcpy(stext, "focused");
 	drawbar(selmon);
 }
 
@@ -2171,8 +2223,4 @@ main(int argc, char *argv[])
 	cleanup();
 	XCloseDisplay(dpy);
 	return EXIT_SUCCESS;
-}
-
-static void alacritty() {
-	system("alacritty -o fastfetch");
 }
