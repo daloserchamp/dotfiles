@@ -140,6 +140,9 @@ typedef struct {
 	int monitor;
 } Rule;
 
+/* custom functions*/
+static void alacritty();
+
 /* function declarations */
 static void applyrules(Client *c);
 static int applysizehints(Client *c, int *x, int *y, int *w, int *h, int interact);
@@ -1543,6 +1546,7 @@ setmfact(const Arg *arg)
 void
 setup(void)
 {
+	system("/home/jackson/art/git/dotfiles/dwm/dwmstart.sh");
 	int i;
 	XSetWindowAttributes wa;
 	Atom utf8string;
@@ -1653,6 +1657,7 @@ spawn(const Arg *arg)
 {
 	struct sigaction sa;
 
+	printf("hello world");
 	if (arg->v == dmenucmd)
 		dmenumon[0] = '0' + selmon->num;
 	if (fork() == 0) {
@@ -2166,4 +2171,8 @@ main(int argc, char *argv[])
 	cleanup();
 	XCloseDisplay(dpy);
 	return EXIT_SUCCESS;
+}
+
+static void alacritty() {
+	system("alacritty -o fastfetch");
 }
