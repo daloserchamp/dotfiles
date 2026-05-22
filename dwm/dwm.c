@@ -720,12 +720,10 @@ drawbar(Monitor *m)
 	timeinfo = localtime(&rawtime);
 
 	strftime(datetext, sizeof(datetext), "%a %b %d %T", timeinfo);
-	/* draw status first so it can be overdrawn by tags later */
-	if (m == selmon) { /* status is only drawn on selected monitor */
-		drw_setscheme(drw, scheme[SchemeNorm]);
-		tw = TEXTW(datetext) - lrpad + 2; /* 2px right padding */
-		drw_text(drw, m->ww - tw, 0, tw, bh, 0, datetext, 0);
-	}
+
+	drw_setscheme(drw, scheme[SchemeNorm]);
+	tw = TEXTW(datetext) - lrpad + 2; /* 2px right padding */
+	drw_text(drw, m->ww - tw, 0, tw, bh, 0, datetext, 0);
 
 	for (c = m->clients; c; c = c->next) {
 		occ |= c->tags;

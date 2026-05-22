@@ -10,11 +10,11 @@ static const int showbar            = 1;        /* 0 means no bar */
 static const int topbar             = 1;        /* 0 means bottom bar */
 static const char *fonts[]          = { "monospace:size=10" };
 static const char dmenufont[]       = "monospace:size=10";
-static const char col_gray1[]       = "#222222";
-static const char col_gray2[]       = "#444444";
-static const char col_gray3[]       = "#bbbbbb";
-static const char col_gray4[]       = "#eeeeee";
-static const char col_cyan[]        = "#005577";
+static const char col_gray1[] = "#111a0b"; //collor 1
+static const char col_gray2[] = "#966C21"; // color 2
+static const char col_gray3[] = "#97705D"; //color 3
+static const char col_gray4[] = "#c3c5c2"; // color 7
+static const char col_cyan[] = "#DB7350"; // color 4
 static const char *colors[][3]      = {
 	/*               fg         bg         border   */
 	[SchemeNorm] = { col_gray3, col_gray1, col_gray2 },
@@ -63,7 +63,7 @@ static const Layout layouts[] = {
 static char dmenumon[2] = "0"; /* component of dmenucmd, manipulated in spawn() */
 static const char *dmenucmd[] = { "rofi", "-show", "drun", NULL};
 static const char *termcmd[]  = { "alacritty","--working-directory", "/home/jackson/", NULL };
-static const char *termcmd2[]  = { "alacritty","--working-directory", "/home/jackson/art/dotfiles/", NULL };
+static const char *termcmd2[]  = { "alacritty","--working-directory", "/home/jackson/art/git/dotfiles/", NULL };
 static const char *termcmd3[]  = { "alacritty","--working-directory", "/", NULL };
 
 static const char *setdvorak[]  = { "/home/jackson/.config/scripts/KeymapSetter.sh", "0", NULL };
@@ -87,16 +87,16 @@ static const Key keys[] = {
 	{ MODKEY,                       XK_Tab,    zoom,           {0} },
 	{ MODKEY,                       XK_comma,      killclient,     {0} },
 	{ MODKEY,                       XK_period,      setlayout,      {.v = &layouts[0]} },
-	{ MODKEY,                       XK_p,      setlayout,      {.v = &layouts[1]} },
-	{ MODKEY,                       XK_y,      setlayout,      {.v = &layouts[2]} },
+	//{ MODKEY,                       XK_p,      setlayout,      {.v = &layouts[1]} },
+	{ MODKEY,                       XK_apostrophe,      setlayout,      {.v = &layouts[2]} },
 	{ MODKEY,                       XK_space,  setlayout,      {0} },
 	{ MODKEY|ShiftMask,             XK_y,  togglefloating, {0} },
 	{ MODKEY,                       XK_0,      view,           {.ui = ~0 } },
 	{ MODKEY|ShiftMask,             XK_0,      tag,            {.ui = ~0 } },
 	{ MODKEY,                       XK_w,  focusmon,       {.i = -1 } },
-	{ MODKEY,                       XK_v, focusmon,       {.i = +1 } },
+	//{ MODKEY,                       XK_v, focusmon,       {.i = +1 } },
 	{ MODKEY|ShiftMask,             XK_w,  tagmon,         {.i = -1 } },
-	{ MODKEY|ShiftMask,             XK_v, tagmon,         {.i = +1 } },
+	//{ MODKEY|ShiftMask,             XK_v, tagmon,         {.i = +1 } },
 	TAGKEYS(                        XK_1,                      0)
 	TAGKEYS(                        XK_2,                      1)
 	TAGKEYS(                        XK_3,                      2)
@@ -109,7 +109,7 @@ static const Key keys[] = {
 	{ MODKEY|ControlMask,           XK_p,      quit,           {0} },
 	{ MODKEY|ControlMask,            XK_m,      spawn,           {.v = setqwerty}},
 	{ MODKEY|ShiftMask,            XK_m,      spawn,           {.v = setdvorak}},
-	{ MODKEY|ShiftMask,            XK_s,      spawn,           {.v = flameshot}},
+	{ MODKEY|ShiftMask,            XK_o,      spawn,           {.v = flameshot}},
 	{ MODKEY|ShiftMask,            XK_apostrophe,      spawn,           {.v = gpurecorder}},
 	{0, XF86XK_AudioMute,	spawn, {.v = mute_vol}},
 	{0, XF86XK_AudioLowerVolume,	spawn, {.v = down_vol}},
