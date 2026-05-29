@@ -93,9 +93,9 @@ static const Key keys[] = {
 	{ MODKEY|ShiftMask,             XK_y,  togglefloating, {0} },
 	{ MODKEY,                       XK_0,      view,           {.ui = ~0 } },
 	{ MODKEY|ShiftMask,             XK_0,      tag,            {.ui = ~0 } },
-	{ MODKEY,                       XK_w,  focusmon,       {.i = -1 } },
+	{ MODKEY,                       XK_o,  focusmon,       {.i = -1 } },
 	//{ MODKEY,                       XK_v, focusmon,       {.i = +1 } },
-	{ MODKEY|ShiftMask,             XK_w,  tagmon,         {.i = -1 } },
+	{ MODKEY|ShiftMask,             XK_o,  tagmon,         {.i = -1 } },
 	//{ MODKEY|ShiftMask,             XK_v, tagmon,         {.i = +1 } },
 	TAGKEYS(                        XK_1,                      0)
 	TAGKEYS(                        XK_2,                      1)
@@ -109,7 +109,7 @@ static const Key keys[] = {
 	{ MODKEY|ControlMask,           XK_p,      quit,           {0} },
 	{ MODKEY|ControlMask,            XK_m,      spawn,           {.v = setqwerty}},
 	{ MODKEY|ShiftMask,            XK_m,      spawn,           {.v = setdvorak}},
-	{ MODKEY|ShiftMask,            XK_o,      spawn,           {.v = flameshot}},
+	{ MODKEY|ShiftMask,            XK_e,      spawn,           {.v = flameshot}},
 	{ MODKEY|ShiftMask,            XK_apostrophe,      spawn,           {.v = gpurecorder}},
 	{0, XF86XK_AudioMute,	spawn, {.v = mute_vol}},
 	{0, XF86XK_AudioLowerVolume,	spawn, {.v = down_vol}},
