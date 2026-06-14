@@ -3,6 +3,7 @@
 static const char *up_vol[]   = { "pactl", "set-sink-volume", "@DEFAULT_SINK@", "+1%",   NULL };
 static const char *down_vol[] = { "pactl", "set-sink-volume", "@DEFAULT_SINK@", "-1%",   NULL };
 static const char *mute_vol[] = { "pactl", "set-sink-mute",   "@DEFAULT_SINK@", "toggle", NULL };
+static const char *calculator[] = { "speedcrunch", NULL };
 /* appearance */
 static const unsigned int borderpx  = 1;        /* border pixel of windows */
 static const unsigned int snap      = 32;       /* snap pixel */
@@ -31,6 +32,7 @@ static const Rule rules[] = {
 	 */
 	/* class      instance    title       tags mask     isfloating   monitor */
 	{ "Gimp",     NULL,       NULL,       0,            1,           -1 },
+	{ "speedcrunch",     NULL,       NULL,       0,            1,           -1 },
 	{ "Firefox",  NULL,       NULL,       1 << 8,       0,           -1 },
 };
 
@@ -87,7 +89,7 @@ static const Key keys[] = {
 	{ MODKEY,                       XK_Tab,    zoom,           {0} },
 	{ MODKEY,                       XK_comma,      killclient,     {0} },
 	{ MODKEY,                       XK_period,      setlayout,      {.v = &layouts[0]} },
-	//{ MODKEY,                       XK_p,      setlayout,      {.v = &layouts[1]} },
+	{ MODKEY,                       XK_i,      setlayout,      {.v = &layouts[1]} },
 	{ MODKEY,                       XK_apostrophe,      setlayout,      {.v = &layouts[2]} },
 	{ MODKEY,                       XK_space,  setlayout,      {0} },
 	{ MODKEY|ShiftMask,             XK_y,  togglefloating, {0} },
@@ -114,6 +116,7 @@ static const Key keys[] = {
 	{0, XF86XK_AudioMute,	spawn, {.v = mute_vol}},
 	{0, XF86XK_AudioLowerVolume,	spawn, {.v = down_vol}},
 	{0, XF86XK_AudioRaiseVolume,	spawn, {.v = up_vol}},
+	{0, XF86XK_Calculator,	spawn, {.v = calculator}},
 };
 
 /* button definitions */
