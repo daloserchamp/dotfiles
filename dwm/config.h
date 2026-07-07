@@ -32,8 +32,9 @@ static const Rule rules[] = {
 	 */
 	/* class      instance    title       tags mask     isfloating   monitor */
 	{ "Gimp",     NULL,       NULL,       0,            1,           -1 },
-	{ "speedcrunch",     NULL,       NULL,       0,            1,           -1 },
+	{ "SpeedCrunch",     NULL,       NULL,       0,            1,           -1 },
 	{ "Firefox",  NULL,       NULL,       1 << 8,       0,           -1 },
+	//{ "UnrealEditor",     NULL,       NULL,       0,            1,           -1 },
 };
 
 /* layout(s) */
@@ -91,6 +92,7 @@ static const Key keys[] = {
 	{ MODKEY,                       XK_period,      setlayout,      {.v = &layouts[0]} },
 	{ MODKEY,                       XK_i,      setlayout,      {.v = &layouts[1]} },
 	{ MODKEY,                       XK_apostrophe,      setlayout,      {.v = &layouts[2]} },
+	{ MODKEY,             XK_u,      togglefullscr,     {0} },
 	{ MODKEY,                       XK_space,  setlayout,      {0} },
 	{ MODKEY|ShiftMask,             XK_y,  togglefloating, {0} },
 	{ MODKEY,                       XK_0,      view,           {.ui = ~0 } },
