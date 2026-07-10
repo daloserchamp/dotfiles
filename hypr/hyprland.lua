@@ -111,7 +111,7 @@ hl.config({
 
 		-- Change transparency of focused and unfocused windows
 		active_opacity = 1.0,
-		inactive_opacity = 0.95,
+		inactive_opacity = 0.9,
 		fullscreen_opacity = 1,
 		dim_inactive = false,
 
@@ -126,9 +126,14 @@ hl.config({
 
 		blur = {
 			enabled = true,
-			size = 6,
-			passes = 2,
-			vibrancy = 0.1696,
+			size = 10,
+			passes = 3,
+			vibrancy = 1,
+			noise = 0.08,
+			contrast = 1.5,
+
+			new_optimizations = true,
+			ignore_opacity = true,
 		},
 
 		glow = {
@@ -156,9 +161,9 @@ hl.config({
 		enable_hyprcursor = false,
 		hide_on_tablet = true,
 		use_cpu_buffer = 0,
-		zoom_rigid = true,
+		--zoom_rigid = true,
 		zoom_disable_aa = true,
-		zoom_detached_camera = false,
+		--zoom_detached_camera = false,
 	},
 	ecosystem = {
 		no_donation_nag = true,
@@ -177,6 +182,8 @@ hl.curve("quick", { type = "bezier", points = { { 0.15, 0 }, { 0.1, 1 } } })
 -- Default springs
 hl.curve("easy", { type = "spring", mass = 1, stiffness = 71.2633, dampening = 15.8273644 })
 
+hl.curve("WorkspaceSpring", { type = "spring", mass = 1, stiffness = 71, dampening = 15 })
+
 hl.animation({ leaf = "global", enabled = true, speed = 10, bezier = "default" })
 hl.animation({ leaf = "border", enabled = true, speed = 5.39, bezier = "easeOutQuint" })
 hl.animation({ leaf = "windows", enabled = true, speed = 4.79, spring = "easy" })
@@ -190,10 +197,10 @@ hl.animation({ leaf = "layersIn", enabled = true, speed = 4, bezier = "easeOutQu
 hl.animation({ leaf = "layersOut", enabled = true, speed = 1.5, bezier = "linear", style = "fade" })
 hl.animation({ leaf = "fadeLayersIn", enabled = true, speed = 1.79, bezier = "almostLinear" })
 hl.animation({ leaf = "fadeLayersOut", enabled = true, speed = 1.39, bezier = "almostLinear" })
-hl.animation({ leaf = "workspaces", enabled = true, speed = 1.94, bezier = "almostLinear", style = "fade" })
-hl.animation({ leaf = "workspacesIn", enabled = true, speed = 1.21, bezier = "almostLinear", style = "fade" })
-hl.animation({ leaf = "workspacesOut", enabled = true, speed = 1.94, bezier = "almostLinear", style = "fade" })
-hl.animation({ leaf = "zoomFactor", enabled = true, speed = 7, bezier = "quick" })
+hl.animation({ leaf = "workspaces", enabled = true, speed = 1.5, bezier = "easeOutQuint", style = "slide" })
+hl.animation({ leaf = "workspacesIn", enabled = true, speed = 1.5, bezier = "easeOutQuint", style = "slide" })
+hl.animation({ leaf = "workspacesOut", enabled = true, speed = 1.5, bezier = "easeOutQuint", style = "slide" })
+hl.animation({ leaf = "zoomFactor", enabled = true, speed = 2, bezier = "quick" })
 
 -- Ref https://wiki.hypr.land/Configuring/Basics/Workspace-Rules/
 -- "Smart gaps" / "No gaps when only"
@@ -467,12 +474,22 @@ hl.window_rule({
 
 hl.window_rule({
 	match = { class = "Alacritty" },
-	opacity = "0.75 override 0.75 override 0.75 override",
+	opacity = "0.75 override 0.65 override 0.65 override",
 })
 
 hl.window_rule({
 	match = { class = "steam" },
 	opacity = "0.9 override 0.75 override 0.75 override",
+})
+
+hl.window_rule({
+	match = { class = "UnrealEditor" },
+	opacity = "1 override 0.85 override 0.85 override",
+})
+
+hl.window_rule({
+	match = { class = "jetbrains-rider" },
+	opacity = "0.85 override 0.85 override 0.85 override",
 })
 
 local MAX_ZOOM = 3
