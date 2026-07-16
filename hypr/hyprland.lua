@@ -249,6 +249,8 @@ hl.config({
 		kb_options = "",
 		kb_rules = "",
 
+		kb_options = "caps:swapescape",
+
 		follow_mouse = 1,
 
 		sensitivity = 0, -- -1.0 - 1.0, 0 means no modification.
@@ -319,6 +321,8 @@ hl.bind(
 	hl.dsp.exec_cmd("command -v hyprshutdown >/dev/null 2>&1 && hyprshutdown || hyprctl dispatch 'hl.dsp.exit()'")
 )
 
+local CurrentLayout = "master" -- for tab overload function
+
 hl.bind(mainMod .. " + APOSTROPHE", function()
 	local ws = hl.get_active_workspace()
 	if not ws then
@@ -329,17 +333,18 @@ hl.bind(mainMod .. " + APOSTROPHE", function()
 		workspace = tostring(ws.id), -- or ws.name
 		layout = "monocle",
 	})
+	CurrentLayout = "monocle" -- for the tabe overload
 end)
 hl.bind(mainMod .. " + PERIOD", function()
 	local ws = hl.get_active_workspace()
 	if not ws then
 		return
 	end
-
 	hl.workspace_rule({
 		workspace = tostring(ws.id), -- or ws.name
 		layout = "master",
 	})
+	CurrentLayout = "master" -- for the tabe overload
 end)
 
 hl.bind(mainMod .. " + U", hl.dsp.exec_cmd("alacritty --working-directory /home/jackson -e ranger"))
@@ -361,7 +366,17 @@ hl.bind(mainMod .. " + A", hl.dsp.exec_cmd("rofi -show drun"))
 -- hl.bind(mainMod .. " + J", hl.dsp.layout("togglesplit")) -- dwindle only
 hl.bind(mainMod .. " + R", hl.dsp.layout("removemaster"))
 hl.bind(mainMod .. " + G", hl.dsp.layout("addmaster"))
-hl.bind(mainMod .. " + TAB", hl.dsp.layout("swapwithmaster"))
+--hl.bind(mainMod .. " + TAB", hl.dsp.layout("swapwithmaster"))
+
+hl.bind(mainMod .. " + SPACE", hl.dsp.layout("cyclenext"))
+local function TabOverload()
+	if CurrentLayout == "master" then
+		hl.dispatch(hl.dsp.layout("swapwithmaster"))
+	elseif CurrentLayout == "monocle" then
+		hl.dispatch(hl.dsp.layout("cyclenext"))
+	end
+end
+hl.bind(mainMod .. " + TAB", TabOverload)
 
 hl.bind(mainMod .. " + SHIFT + M", hl.dsp.exec_cmd("hyprctl switchxkblayout current 0"))
 hl.bind(mainMod .. " + CONTROL + M", hl.dsp.exec_cmd("hyprctl switchxkblayout current 1"))
