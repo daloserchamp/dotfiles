@@ -28,15 +28,6 @@ hl.monitor({
 	scale = "auto",
 })
 
----------------------
----- MY PROGRAMS ----
----------------------
-
--- Set programs that you use
-local terminal = "alacritty"
-local fileManager = "ranger"
-local menu = "hyprlauncher"
-
 -------------------
 ---- AUTOSTART ----
 -------------------
@@ -313,7 +304,7 @@ hl.bind(mainMod .. "+ O", focus_other_monitor)
 hl.bind(mainMod .. "+ SHIFT + O", send_to_other_monitor)
 
 -- Example binds, see https://wiki.hypr.land/Configuring/Basics/Binds/ for more
-hl.bind(mainMod .. " + RETURN", hl.dsp.exec_cmd(terminal))
+hl.bind(mainMod .. " + RETURN", hl.dsp.exec_cmd("alacritty"))
 local closeWindowBind = hl.bind(mainMod .. " + COMMA", hl.dsp.window.close())
 -- closeWindowBind:set_enabled(false)
 hl.bind(
@@ -348,6 +339,7 @@ hl.bind(mainMod .. " + PERIOD", function()
 end)
 
 hl.bind(mainMod .. " + U", hl.dsp.exec_cmd("alacritty --working-directory /home/jackson -e ranger"))
+hl.bind("SUPER + SEMICOLON", hl.dsp.window.fullscreen({ mode = "fullscreen", action = "toggle" }))
 
 hl.bind(mainMod .. " + P", hl.dsp.window.float({ action = "toggle" }))
 

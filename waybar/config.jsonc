@@ -1,7 +1,7 @@
-{
-  "layer": "bottom",
-  "position": "top",
-  "height": 20,
+{  
+	"layer": "bottom",
+	"position": "top",
+	"height": 20,
   "spacing": 1,
   "exclusive": true,
   "gtk-layer-shell": true,
@@ -13,7 +13,7 @@
     "pulseaudio",
   ],
   "modules-center": [
-    "custom/idk",
+    "custom/CurrentLayout",
     "hyprland/workspaces", 
     "custom/UpdateDate",
   ],
@@ -125,7 +125,10 @@
     "exec": "/home/jackson/.config/scripts/UpdateDate.sh",
     "interval": 1
   },
-  "custom/idk": {
-    "format": "?? days until Silksong",
+  "custom/CurrentLayout": {
+		"format": "{}",
+		"exec": "/home/jackson/.config/scripts/FormatCurrentLayout.sh",
+		//"signal": 8,
+		"interval": 1,
   }
 }

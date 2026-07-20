@@ -55,7 +55,7 @@ window#waybar {
 #custom-spotify,
 #custom-notification,
 #custom-UpdateDate,
-#custom-idk,
+#custom-CurrentLayout,
 #cpu,
 #tray,
 #memory,
@@ -110,7 +110,7 @@ window#waybar.empty #window {
 #custom-UpdateDate {
   color: @color6;
 }
-#custom-idk {
+#custom-CurrentLayout {
   color: @color6;
 }
 
