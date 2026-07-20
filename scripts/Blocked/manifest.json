@@ -1,0 +1,13 @@
+{
+  "manifest_version": 3,
+  "name": "Justify Visit",
+  "version": "1.0",
+  "permissions": ["storage", "tabs", "webNavigation"],
+  "host_permissions": ["<all_urls>"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_title": "Justify Visit"
+  }
+}
