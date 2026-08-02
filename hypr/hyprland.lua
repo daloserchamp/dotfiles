@@ -171,7 +171,7 @@ hl.curve("linear", { type = "bezier", points = { { 0, 0 }, { 1, 1 } } })
 hl.curve("almostLinear", { type = "bezier", points = { { 0.5, 0.5 }, { 0.75, 1 } } })
 hl.curve("quick", { type = "bezier", points = { { 0.15, 0 }, { 0.1, 1 } } })
 -- Default springs
-hl.curve("easy", { type = "spring", mass = 1, stiffness = 71.2633, dampening = 15.8273644 })
+hl.curve("easy", { type = "spring", mass = 0.55, stiffness = 917.0532, dampening = 37.6547 })
 
 hl.curve("WorkspaceSpring", { type = "spring", mass = 1, stiffness = 71, dampening = 15 })
 
@@ -429,6 +429,30 @@ hl.bind("XF86AudioPause", hl.dsp.exec_cmd("playerctl play-pause"), { locked = tr
 hl.bind("XF86AudioPlay", hl.dsp.exec_cmd("playerctl play-pause"), { locked = true })
 hl.bind("XF86AudioPrev", hl.dsp.exec_cmd("playerctl previous"), { locked = true })
 
+hl.bind(mainMod .. " + KP_HOME", hl.dsp.exec_cmd("ydotool mousemove -- -40 -40 && sleep 0.1")) -- Left-Up
+hl.bind(mainMod .. " + KP_PRIOR", hl.dsp.exec_cmd("ydotool mousemove -- 40 -40 && sleep 0.1")) -- Right-Up
+hl.bind(mainMod .. " + KP_END", hl.dsp.exec_cmd("ydotool mousemove -- -40 40 && sleep 0.1")) -- Left-Down
+hl.bind(mainMod .. " + KP_NEXT", hl.dsp.exec_cmd("ydotool mousemove -- 40 40 && sleep 0.1")) -- Right-Down
+hl.bind(mainMod .. " + B", hl.dsp.exec_cmd("ydotool mousemove -- -40 0"), { repeating = true }) -- Left
+hl.bind(mainMod .. " + V", hl.dsp.exec_cmd("ydotool mousemove -- 40 0"), { repeating = true }) -- Right
+hl.bind(mainMod .. " + M", hl.dsp.exec_cmd("ydotool mousemove -- 0 -40"), { repeating = true }) -- Up
+hl.bind(mainMod .. " + W", hl.dsp.exec_cmd("ydotool mousemove -- 0 40"), { repeating = true }) -- Down
+
+hl.bind(mainMod .. " + CONTROL + V", hl.dsp.exec_cmd("ydotool click C0"))
+hl.bind(mainMod .. " + CONTROL + B", hl.dsp.exec_cmd("ydotool click C1"))
+
+hl.bind(
+	mainMod .. " + KP_INSERT",
+	hl.dsp.exec_cmd(
+		[[sh -c 'if [ "$(cat /tmp/mouse_state)" = "40" ]; then echo "80" > /tmp/mouse_state && ydotool click 0x80; else echo "40" > /tmp/mouse_state && ydotool click 0x40; fi']]
+	)
+)
+
+hl.bind(mainMod .. " + KP_Enter", hl.dsp.exec_cmd("sudo pkill ydotoold"))
+hl.bind(
+	mainMod .. " + KP_Add",
+	hl.dsp.exec_cmd("sudo ydotoold --socket-perm=0666 --socket-path=/run/user/1000/.ydotool_socket")
+)
 --------------------------------
 ---- WINDOWS AND WORKSPACES ----
 --------------------------------
