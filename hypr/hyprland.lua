@@ -510,14 +510,6 @@ hl.window_rule({
 })
 
 hl.window_rule({
-	name = "ranger_image_preview",
-	match = { class = "[[^ueberzugpp$]]" },
-	float = true,
-	focus_on_activate = false,
-	no_focus = true,
-})
-
-hl.window_rule({
 	match = { class = "steam" },
 	opacity = "0.9 override 0.75 override 0.75 override",
 })
