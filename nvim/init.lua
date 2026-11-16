@@ -31,10 +31,137 @@ local function switch_source_header(bufnr)
     vim.cmd.edit(vim.uri_to_fname(result))
   end, bufnr)
 end
+
+local function reindent(first, last, force)
+  if first == nil or last == nil or (last <= first and not force) then
+    return
+  end
+  if not vim.bo.modifiable then
+    return
+  end
+  if vim.bo.indentexpr == '' and not vim.bo.cindent then
+    return
+  end
+  local win = vim.api.nvim_get_current_win()
+  local cursor = vim.api.nvim_win_get_cursor(win)
+  local before = #(vim.api.nvim_buf_get_lines(0, cursor[1] - 1, cursor[1], false)[1] or '')
+  pcall(vim.cmd.undojoin)
+  vim.cmd(('silent keepjumps %d,%dnormal! =='):format(first, last))
+  local after = #(vim.api.nvim_buf_get_lines(0, cursor[1] - 1, cursor[1], false)[1] or '')
+  pcall(vim.api.nvim_win_set_cursor, win, { cursor[1], math.max(0, cursor[2] + after - before) })
+end
+
+local function put_and_reindent(cmd)
+  return function()
+    local reg = vim.v.register
+    local linewise = vim.fn.getregtype(reg):sub(1, 1) == 'V'
+    vim.cmd(('normal! %d"%s%s'):format(vim.v.count1, reg, cmd))
+    local first = vim.api.nvim_buf_get_mark(0, '[')[1]
+    local last = vim.api.nvim_buf_get_mark(0, ']')[1]
+    reindent(first, last, linewise)
+  end
+end
+
+local paste_start
+vim.paste = (function(original)
+  return function(lines, phase)
+    if phase == -1 or phase == 1 then
+      paste_start = vim.api.nvim_win_get_cursor(0)[1]
+    end
+    local result = original(lines, phase)
+    if (phase == -1 or phase == 3) and vim.fn.mode() ~= 'c' and vim.bo.buftype == '' then
+      reindent(paste_start, vim.api.nvim_win_get_cursor(0)[1])
+    end
+    return result
+  end
+end)(vim.paste)
+
+local function block_comment_markers()
+  local open, close
+  for part in vim.gsplit(vim.bo.comments, ',', { plain = true }) do
+    local flags, text = part:match '^([^:]*):(.*)$'
+    if flags and text and text ~= '' then
+      if flags:find('s', 1, true) then
+        open = text
+      end
+      if flags:find('e', 1, true) then
+        close = text
+      end
+    end
+  end
+  if open and close then
+    return open, close
+  end
+end
+
+local function toggle_block_comment()
+  local open, close = block_comment_markers()
+  if not open then
+    vim.api.nvim_feedkeys('gc', 'mx', false)
+    return
+  end
+  local mode = vim.fn.mode()
+  local a = vim.fn.getpos 'v'
+  local b = vim.fn.getpos '.'
+  local srow, scol, erow, ecol = a[2], a[3], b[2], b[3]
+  if srow > erow or (srow == erow and scol > ecol) then
+    srow, scol, erow, ecol = erow, ecol, srow, scol
+  end
+  vim.api.nvim_feedkeys(vim.keycode '<Esc>', 'nx', false)
+  local first = vim.api.nvim_buf_get_lines(0, srow - 1, srow, false)[1]
+  local last = vim.api.nvim_buf_get_lines(0, erow - 1, erow, false)[1]
+  local scol0, ecol0
+  if mode == 'V' then
+    scol0 = (first:find '%S' or 1) - 1
+    ecol0 = #last
+  else
+    scol0 = math.min(scol - 1, #first)
+    local clamped = math.min(ecol, #last)
+    ecol0 = clamped < 1 and 0 or clamped + vim.str_utf_end(last, clamped)
+  end
+  local text = vim.api.nvim_buf_get_text(0, srow - 1, scol0, erow - 1, ecol0, {})
+  local head = text[1]
+  local tail = text[#text]
+  local long_enough = #text > 1 or #head >= #open + #close
+  if long_enough and head:sub(1, #open) == open and tail:sub(-#close) == close then
+    local trailing = tail:match('%s?' .. vim.pesc(close) .. '$')
+    local leading = head:match('^' .. vim.pesc(open) .. '%s?')
+    vim.api.nvim_buf_set_text(0, erow - 1, ecol0 - #trailing, erow - 1, ecol0, {})
+    vim.api.nvim_buf_set_text(0, srow - 1, scol0, srow - 1, scol0 + #leading, {})
+  else
+    vim.api.nvim_buf_set_text(0, erow - 1, ecol0, erow - 1, ecol0, { ' ' .. close })
+    vim.api.nvim_buf_set_text(0, srow - 1, scol0, srow - 1, scol0, { open .. ' ' })
+  end
+end
+
+local function wrap_diagnostic(diagnostic)
+  local win = vim.api.nvim_get_current_win()
+  local textoff = vim.fn.getwininfo(win)[1].textoff
+  local width = math.max(30, vim.api.nvim_win_get_width(win) - textoff - (diagnostic.col or 0) - 5)
+  local out = {}
+  for _, paragraph in ipairs(vim.split(diagnostic.message, '\n', { plain = true })) do
+    local line = ''
+    for word in paragraph:gmatch '%S+' do
+      if line == '' then
+        line = word
+      elseif #line + 1 + #word <= width then
+        line = line .. ' ' .. word
+      else
+        table.insert(out, line)
+        line = word
+      end
+    end
+    table.insert(out, line)
+  end
+  return table.concat(out, '\n')
+end
+
 vim.o.number = true
 vim.o.relativenumber = true
 vim.o.mouse = 'a'
 vim.o.showmode = false
+
+vim.o.clipboard = 'unnamedplus'
 
 vim.o.smartcase = true
 vim.o.signcolumn = 'yes'
@@ -60,6 +187,8 @@ vim.o.sessionoptions = 'buffers,curdir,tabpages,winsize,help,globals,skiprtp,fol
 vim.keymap.set('n', '<Esc>', '<cmd>nohlsearch<CR>')
 
 vim.keymap.set('n', '<leader>q', vim.diagnostic.setloclist, { desc = 'Open diagnostic [Q]uickfix list' })
+vim.keymap.set('n', '<leader>e', vim.diagnostic.open_float, { desc = 'Show diagnostic under cursor' })
+vim.keymap.set({ 'n', 'x' }, '<leader>ca', vim.lsp.buf.code_action, { desc = '[C]ode [A]ction (diagnostic fixes)' })
 
 vim.keymap.set('t', '<Esc><Esc>', '<C-\\><C-n>', { desc = 'Exit terminal typing mode' })
 
@@ -71,15 +200,29 @@ vim.keymap.set('n', '<C-k>', '<C-w><C-k>', { desc = 'Move focus to the upper win
 vim.keymap.set('n', '<leader>w', '<cmd>write<CR>', { desc = '[W]rite (save) file' })
 vim.keymap.set('n', '<leader>bd', '<cmd>bdelete<CR>', { desc = '[B]uffer [D]elete' })
 
--- Move selected lines up/down (stays selected, re-indents)
 vim.keymap.set('v', 'J', ":m '>+1<CR>gv=gv", { desc = 'Move selection down' })
 vim.keymap.set('v', 'K', ":m '<-2<CR>gv=gv", { desc = 'Move selection up' })
 
--- Keep the selection after indenting
 vim.keymap.set('v', '<', '<gv', { desc = 'Indent left, keep selection' })
 vim.keymap.set('v', '>', '>gv', { desc = 'Indent right, keep selection' })
 
-vim.keymap.set('x', 'p', 'P', { desc = 'Paste without clobbering register' })
+for _, key in ipairs { 'd', 'D', 'x', 'X', 'c', 'C', 's', 'S' } do
+  vim.keymap.set('n', key, '"d' .. key, { desc = 'Delete into register d' })
+end
+for _, key in ipairs { 'd', 'D', 'x', 'X', 'c', 'C', 's' } do
+  vim.keymap.set('x', key, '"d' .. key, { desc = 'Delete into register d' })
+end
+
+vim.keymap.set('n', 'p', put_and_reindent 'p', { desc = 'Paste and re-indent' })
+vim.keymap.set('n', 'P', put_and_reindent 'P', { desc = 'Paste before and re-indent' })
+vim.keymap.set('x', 'p', function()
+  local reg = vim.v.register
+  local linewise = vim.fn.getregtype(reg):sub(1, 1) == 'V'
+  vim.cmd 'normal! "dygvP'
+  local first = vim.api.nvim_buf_get_mark(0, '[')[1]
+  local last = vim.api.nvim_buf_get_mark(0, ']')[1]
+  reindent(first, last, linewise)
+end, { desc = 'Paste over selection (old text goes to register d)' })
 
 vim.keymap.set('i', '<C-v>', function()
   vim.api.nvim_paste(vim.fn.getreg '+', true, -1)
@@ -87,6 +230,10 @@ end, { desc = 'paste in insert' })
 
 vim.keymap.set('n', 'n', 'nzzzv', { desc = 'Next match (centered)' })
 vim.keymap.set('n', 'N', 'Nzzzv', { desc = 'Previous match (centered)' })
+
+vim.keymap.set('n', '<leader>cc', 'gcc', { remap = true, desc = '[C]ode: toggle line [c]omment' })
+vim.keymap.set('x', '<leader>cc', toggle_block_comment, { desc = '[C]ode: toggle block [c]omment on selection' })
+vim.keymap.set('x', '<leader>cl', 'gc', { remap = true, desc = '[C]ode: toggle [l]ine comments on selection' })
 
 vim.api.nvim_create_autocmd('TextYankPost', {
   desc = 'Highlight when yanking (copying) text',
@@ -96,7 +243,6 @@ vim.api.nvim_create_autocmd('TextYankPost', {
   end,
 })
 
--- Reload buffers that changed on disk when coming back to nvim
 vim.api.nvim_create_autocmd({ 'FocusGained', 'BufEnter' }, {
   desc = 'Check for external file changes',
   group = vim.api.nvim_create_augroup('user-checktime', { clear = true }),
@@ -107,7 +253,6 @@ vim.api.nvim_create_autocmd({ 'FocusGained', 'BufEnter' }, {
   end,
 })
 
--- Reopen files
 vim.api.nvim_create_autocmd('BufReadPost', {
   desc = 'reopen',
   group = vim.api.nvim_create_augroup('user-restore-cursor', { clear = true }),
@@ -119,7 +264,6 @@ vim.api.nvim_create_autocmd('BufReadPost', {
   end,
 })
 
--- fix for no name buffers
 vim.api.nvim_create_autocmd('BufHidden', {
   desc = 'Wipe leftover empty [No Name] buffers',
   group = vim.api.nvim_create_augroup('user-wipe-empty-buffers', { clear = true }),
@@ -141,7 +285,6 @@ vim.api.nvim_create_autocmd('BufHidden', {
   end,
 })
 
--- terminal insert
 vim.api.nvim_create_autocmd('BufEnter', {
   desc = 'terminal insert',
   group = vim.api.nvim_create_augroup('user-term-insert', { clear = true }),
@@ -188,9 +331,261 @@ vim.api.nvim_create_user_command('FormatToggle', function()
 end, { desc = 'Toggle format on save' })
 vim.keymap.set('n', '<leader>tf', '<cmd>FormatToggle<CR>', { desc = '[T]oggle [F]ormat on save' })
 
--- ============================================================================
--- Plugin manager
--- ============================================================================
+local buffer_panel = { buf = nil, win = nil, map = {}, current = nil, width = 32 }
+
+local function panel_win_valid()
+  return buffer_panel.win ~= nil and vim.api.nvim_win_is_valid(buffer_panel.win)
+end
+
+local function panel_buf_valid()
+  return buffer_panel.buf ~= nil and vim.api.nvim_buf_is_valid(buffer_panel.buf)
+end
+
+local function is_file_buffer(buf)
+  return vim.api.nvim_buf_is_valid(buf) and vim.bo[buf].buflisted and vim.bo[buf].buftype == '' and vim.api.nvim_buf_get_name(buf) ~= ''
+end
+
+local function panel_refresh()
+  if not panel_buf_valid() then
+    return
+  end
+  local entries, counts = {}, {}
+  for _, buf in ipairs(vim.api.nvim_list_bufs()) do
+    if is_file_buffer(buf) then
+      local name = vim.api.nvim_buf_get_name(buf)
+      local base = vim.fs.basename(name)
+      counts[base] = (counts[base] or 0) + 1
+      table.insert(entries, { buf = buf, name = name, base = base })
+    end
+  end
+  local lines, map, current_line = {}, {}, nil
+  for i, entry in ipairs(entries) do
+    local label = entry.base
+    if counts[entry.base] > 1 then
+      label = label .. ' (' .. vim.fs.basename(vim.fs.dirname(entry.name)) .. ')'
+    end
+    if vim.bo[entry.buf].modified then
+      label = label .. ' +'
+    end
+    lines[i] = ' ' .. label
+    map[i] = entry.buf
+    if entry.buf == buffer_panel.current then
+      current_line = i
+    end
+  end
+  if #lines == 0 then
+    lines = { ' (no open files)' }
+  end
+  buffer_panel.map = map
+  local focused = panel_win_valid() and vim.api.nvim_get_current_win() == buffer_panel.win
+  local row = focused and vim.api.nvim_win_get_cursor(buffer_panel.win)[1] or nil
+  vim.bo[buffer_panel.buf].modifiable = true
+  vim.api.nvim_buf_set_lines(buffer_panel.buf, 0, -1, false, lines)
+  vim.bo[buffer_panel.buf].modifiable = false
+  if panel_win_valid() then
+    if focused then
+      pcall(vim.api.nvim_win_set_cursor, buffer_panel.win, { math.min(row, #lines), 0 })
+    elseif current_line then
+      pcall(vim.api.nvim_win_set_cursor, buffer_panel.win, { current_line, 0 })
+    end
+  end
+end
+
+local function close_panel()
+  if panel_win_valid() then
+    pcall(vim.api.nvim_win_close, buffer_panel.win, true)
+  end
+  buffer_panel.win = nil
+end
+
+local function target_window()
+  local function usable(win)
+    if not vim.api.nvim_win_is_valid(win) or win == buffer_panel.win then
+      return false
+    end
+    local buf = vim.api.nvim_win_get_buf(win)
+    return vim.bo[buf].buftype == '' and vim.api.nvim_win_get_config(win).relative == ''
+  end
+  local previous = vim.fn.win_getid(vim.fn.winnr '#')
+  if usable(previous) then
+    return previous
+  end
+  for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
+    if usable(win) then
+      return win
+    end
+  end
+  vim.cmd 'botright vsplit'
+  return vim.api.nvim_get_current_win()
+end
+
+local function open_panel()
+  pcall(vim.cmd, 'Neotree close')
+  if panel_win_valid() then
+    vim.api.nvim_set_current_win(buffer_panel.win)
+    return
+  end
+  local current = vim.api.nvim_get_current_buf()
+  if is_file_buffer(current) then
+    buffer_panel.current = current
+  end
+  if not panel_buf_valid() then
+    local buf = vim.api.nvim_create_buf(false, true)
+    buffer_panel.buf = buf
+    vim.bo[buf].buftype = 'nofile'
+    vim.bo[buf].bufhidden = 'hide'
+    vim.bo[buf].swapfile = false
+    vim.bo[buf].filetype = 'bufferpanel'
+    vim.bo[buf].modifiable = false
+    local function selected()
+      return buffer_panel.map[vim.api.nvim_win_get_cursor(0)[1]]
+    end
+    vim.keymap.set('n', '<CR>', function()
+      local target = selected()
+      if not target then
+        return
+      end
+      vim.api.nvim_set_current_win(target_window())
+      vim.cmd.buffer(target)
+    end, { buffer = buf, desc = 'Open file' })
+    vim.keymap.set('n', 'd', function()
+      local target = selected()
+      if not target then
+        return
+      end
+      local ok, err = pcall(vim.cmd, 'bdelete ' .. target)
+      if not ok then
+        vim.notify(tostring(err), vim.log.levels.WARN)
+      end
+      vim.schedule(panel_refresh)
+    end, { buffer = buf, desc = 'Close file buffer' })
+    vim.keymap.set('n', 'q', close_panel, { buffer = buf, desc = 'Close panel' })
+  end
+  vim.cmd('topleft ' .. buffer_panel.width .. 'vsplit')
+  local win = vim.api.nvim_get_current_win()
+  buffer_panel.win = win
+  vim.api.nvim_win_set_buf(win, buffer_panel.buf)
+  vim.wo[win].number = false
+  vim.wo[win].relativenumber = false
+  vim.wo[win].signcolumn = 'no'
+  vim.wo[win].foldcolumn = '0'
+  vim.wo[win].cursorline = true
+  vim.wo[win].winfixwidth = true
+  vim.wo[win].wrap = false
+  vim.wo[win].list = false
+  vim.wo[win].spell = false
+  panel_refresh()
+end
+
+local function panel_focus_or_close()
+  if panel_win_valid() and vim.api.nvim_get_current_win() == buffer_panel.win then
+    close_panel()
+  else
+    open_panel()
+  end
+end
+
+local function neotree_focus_or_close()
+  if vim.bo.filetype == 'neo-tree' then
+    vim.cmd 'Neotree close'
+  else
+    close_panel()
+    vim.cmd 'Neotree focus filesystem left reveal'
+  end
+end
+
+local function terminal_focus_or_close()
+  if vim.bo.filetype == 'toggleterm' then
+    vim.cmd 'ToggleTerm'
+    return
+  end
+  for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
+    if vim.bo[vim.api.nvim_win_get_buf(win)].filetype == 'toggleterm' then
+      vim.api.nvim_set_current_win(win)
+      vim.cmd.startinsert()
+      return
+    end
+  end
+  vim.cmd 'ToggleTerm'
+end
+
+vim.keymap.set('n', '\\', neotree_focus_or_close, { desc = 'Focus or close file tree' })
+vim.keymap.set('n', '|', panel_focus_or_close, { desc = 'Focus or close open-files panel' })
+vim.keymap.set('n', '<leader>bb', panel_focus_or_close, { desc = '[B]uffers panel' })
+vim.keymap.set({ 'n', 'i', 't' }, '<C-\\>', terminal_focus_or_close, { desc = 'Focus or close terminal' })
+
+local panel_group = vim.api.nvim_create_augroup('user-buffer-panel', { clear = true })
+vim.api.nvim_create_autocmd({ 'BufEnter', 'BufAdd', 'BufDelete', 'BufWipeout', 'BufFilePost', 'BufModifiedSet', 'BufWritePost' }, {
+  group = panel_group,
+  callback = function(ev)
+    if is_file_buffer(ev.buf) and vim.api.nvim_get_current_buf() == ev.buf then
+      buffer_panel.current = ev.buf
+    end
+    vim.schedule(panel_refresh)
+  end,
+})
+vim.api.nvim_create_autocmd('WinEnter', {
+  group = panel_group,
+  callback = function()
+    if panel_win_valid() and vim.api.nvim_get_current_win() == buffer_panel.win and #vim.api.nvim_tabpage_list_wins(0) == 1 then
+      vim.schedule(function()
+        pcall(vim.cmd, 'quit')
+      end)
+    end
+  end,
+})
+
+local function in_arguments()
+  local ok, node = pcall(vim.treesitter.get_node)
+  if not ok then
+    return false
+  end
+  local argument_nodes = { argument_list = true, arguments = true, parameter_list = true, parameters = true, formal_parameters = true }
+  local body_nodes = { compound_statement = true, statement_block = true, block = true, function_body = true }
+  while node do
+    local node_type = node:type()
+    if argument_nodes[node_type] then
+      return true
+    end
+    if body_nodes[node_type] then
+      return false
+    end
+    node = node:parent()
+  end
+  return false
+end
+
+local hover_timer = vim.uv.new_timer()
+vim.api.nvim_create_autocmd({ 'CursorMoved', 'InsertEnter', 'BufLeave' }, {
+  desc = 'Show hover or signature help after the cursor rests',
+  group = vim.api.nvim_create_augroup('user-idle-hover', { clear = true }),
+  callback = function()
+    hover_timer:stop()
+    if vim.fn.mode() ~= 'n' then
+      return
+    end
+    local buf = vim.api.nvim_get_current_buf()
+    if #vim.lsp.get_clients { bufnr = buf } == 0 then
+      return
+    end
+    hover_timer:start(
+      3000,
+      0,
+      vim.schedule_wrap(function()
+        if vim.fn.mode() ~= 'n' or vim.api.nvim_get_current_buf() ~= buf then
+          return
+        end
+        local opts = { silent = true, focus = false, border = 'single' }
+        if in_arguments() then
+          vim.lsp.buf.signature_help(opts)
+        else
+          vim.lsp.buf.hover(opts)
+        end
+      end)
+    )
+  end,
+})
+
 local lazypath = vim.fn.stdpath 'data' .. '/lazy/lazy.nvim'
 if not (vim.uv or vim.loop).fs_stat(lazypath) then
   local lazyrepo = 'https://github.com/folke/lazy.nvim.git'
@@ -200,14 +595,13 @@ if not (vim.uv or vim.loop).fs_stat(lazypath) then
   end
 end
 
----@type vim.Option
 local rtp = vim.opt.rtp
 rtp:prepend(lazypath)
 
 require('lazy').setup({
-  'NMAC427/guess-indent.nvim', -- Detect tabstop and shiftwidth automatically
+  'NMAC427/guess-indent.nvim',
 
-  { -- Git signs in the gutter + hunk actions
+  {
     'lewis6991/gitsigns.nvim',
     opts = {
       signs = {
@@ -247,7 +641,23 @@ require('lazy').setup({
     },
   },
 
-  { -- Fuzzy Finder (files, lsp, etc)
+  {
+    'akinsho/git-conflict.nvim',
+    version = '*',
+    event = { 'BufReadPre', 'BufNewFile' },
+    opts = { default_mappings = false },
+    keys = {
+      { '<leader>mo', '<cmd>GitConflictChooseOurs<CR>', desc = '[M]erge: keep [o]urs' },
+      { '<leader>mt', '<cmd>GitConflictChooseTheirs<CR>', desc = '[M]erge: keep [t]heirs' },
+      { '<leader>mb', '<cmd>GitConflictChooseBoth<CR>', desc = '[M]erge: keep [b]oth' },
+      { '<leader>mn', '<cmd>GitConflictChooseNone<CR>', desc = '[M]erge: keep [n]either' },
+      { '<leader>ml', '<cmd>GitConflictListQf<CR>', desc = '[M]erge: [l]ist conflicts' },
+      { ']x', '<cmd>GitConflictNextConflict<CR>', desc = 'Next merge conflict' },
+      { '[x', '<cmd>GitConflictPrevConflict<CR>', desc = 'Previous merge conflict' },
+    },
+  },
+
+  {
     'nvim-telescope/telescope.nvim',
     event = 'VimEnter',
     dependencies = {
@@ -313,7 +723,6 @@ require('lazy').setup({
     end,
   },
 
-  -- LSP Plugins
   {
     'folke/lazydev.nvim',
     ft = 'lua',
@@ -324,7 +733,6 @@ require('lazy').setup({
     },
   },
   {
-    -- Main LSP Configuration
     'neovim/nvim-lspconfig',
     dependencies = {
       { 'mason-org/mason.nvim', opts = { ui = { border = 'single' } } },
@@ -358,14 +766,12 @@ require('lazy').setup({
           map('gW', tele 'lsp_dynamic_workspace_symbols', 'Open Workspace Symbols')
           map('grt', tele 'lsp_type_definitions', '[G]oto [T]ype Definition')
 
-          -- source code switcher
           map('<leader>ch', function()
             switch_source_header(event.buf)
           end, '[C]ode: switch [H]eader/source')
 
           local client = vim.lsp.get_client_by_id(event.data.client_id)
 
-          -- Highlight other uses of the word under the cursor
           if client and client:supports_method('textDocument/documentHighlight', event.buf) then
             local highlight_augroup = vim.api.nvim_create_augroup('kickstart-lsp-highlight', { clear = false })
             vim.api.nvim_create_autocmd({ 'CursorHold', 'CursorHoldI' }, {
@@ -393,7 +799,6 @@ require('lazy').setup({
             end, '[T]oggle Inlay [H]ints')
           end
 
-          -- Format while typing
           if client and client.name == 'clangd' and vim.lsp.on_type_formatting and has_clang_format(event.buf) then
             vim.lsp.on_type_formatting.enable(true, { client_id = client.id })
           end
@@ -402,7 +807,7 @@ require('lazy').setup({
 
       vim.diagnostic.config {
         severity_sort = true,
-        float = { border = 'single', source = 'if_many' }, -- [CHANGED] square border
+        float = { border = 'single', source = 'if_many' },
         underline = { severity = vim.diagnostic.severity.ERROR },
         signs = vim.g.have_nerd_font and {
           text = {
@@ -412,7 +817,8 @@ require('lazy').setup({
             [vim.diagnostic.severity.HINT] = '󰌶 ',
           },
         } or {},
-        virtual_text = { source = 'if_many', spacing = 2 },
+        virtual_text = { source = 'if_many', spacing = 2, current_line = false },
+        virtual_lines = { current_line = true, format = wrap_diagnostic },
       }
 
       vim.lsp.config('*', {
@@ -426,6 +832,7 @@ require('lazy').setup({
           '--background-index',
           '--pch-storage=memory',
           '--completion-style=detailed',
+          '--function-arg-placeholders=false',
           '-j=' .. jobs,
         },
         reuse_client = function(client)
@@ -442,15 +849,15 @@ require('lazy').setup({
       })
 
       vim.lsp.enable {
-        'clangd', -- C / C++
-        'lua_ls', -- Lua
-        'neocmake', -- CMake
-        'jdtls', -- Java
-        'hls', -- Haskell install via ghcup
-        'ts_ls', -- JavaScript / TypeScript / React
-        'html', -- HTML
-        'cssls', -- CSS
-        'emmet_language_server', -- Emmet abbreviations in HTML/CSS/JSX
+        'clangd',
+        'lua_ls',
+        'neocmake',
+        'jdtls',
+        'hls',
+        'ts_ls',
+        'html',
+        'cssls',
+        'emmet_language_server',
       }
 
       require('mason-tool-installer').setup {
@@ -472,7 +879,130 @@ require('lazy').setup({
     end,
   },
 
-  { -- Autoformat
+  {
+    'smjonas/inc-rename.nvim',
+    cmd = 'IncRename',
+    keys = {
+      {
+        '<F2>',
+        function()
+          return ':IncRename ' .. vim.fn.expand '<cword>'
+        end,
+        expr = true,
+        desc = 'Rename symbol (project-wide, with preview)',
+      },
+    },
+    opts = {},
+  },
+
+  {
+    'Badhi/nvim-treesitter-cpp-tools',
+    dependencies = { 'nvim-treesitter/nvim-treesitter' },
+    ft = { 'c', 'cpp' },
+    config = function()
+      local source_extensions = { cpp = true, cc = true, cxx = true, ['c++'] = true, C = true }
+      local ignored_dirs = { ['.git'] = true, ['node_modules'] = true, ['.cache'] = true, ['CMakeFiles'] = true, ['build'] = true }
+
+      local function split_name(path)
+        return vim.fs.basename(path):match '^(.*)%.([^.]+)$'
+      end
+
+      local function closeness(path, header)
+        local a = vim.split(vim.fs.dirname(path), '/', { plain = true })
+        local b = vim.split(vim.fs.dirname(header), '/', { plain = true })
+        local shared = 0
+        for i = 1, math.min(#a, #b) do
+          if a[i] ~= b[i] then
+            break
+          end
+          shared = shared + 1
+        end
+        return shared
+      end
+
+      local function pick_closest(paths, header)
+        local best, best_score
+        for _, path in ipairs(paths) do
+          local score = closeness(path, header)
+          if not best or score > best_score then
+            best, best_score = path, score
+          end
+        end
+        return best
+      end
+
+      local function find_source(header)
+        local stem = split_name(header)
+        local function matches(path)
+          local name, ext = split_name(path)
+          return name ~= nil and name == stem and source_extensions[ext] == true
+        end
+        local from_buffers = {}
+        for _, buf in ipairs(vim.api.nvim_list_bufs()) do
+          local name = vim.api.nvim_buf_get_name(buf)
+          if name ~= '' and vim.bo[buf].buftype == '' and matches(name) then
+            table.insert(from_buffers, vim.fs.normalize(name))
+          end
+        end
+        if #from_buffers > 0 then
+          return pick_closest(from_buffers, header)
+        end
+        local cwd = vim.fn.getcwd()
+        local from_disk = {}
+        local walker = vim.fs.dir(cwd, {
+          depth = 25,
+          skip = function(dir)
+            return not ignored_dirs[dir]
+          end,
+        })
+        for name, kind in walker do
+          if kind == 'file' and matches(name) then
+            table.insert(from_disk, vim.fs.normalize(vim.fs.joinpath(cwd, name)))
+          end
+        end
+        return pick_closest(from_disk, header)
+      end
+
+      local function write_to_source(str)
+        local header = vim.fs.normalize(vim.api.nvim_buf_get_name(0))
+        local source = find_source(header)
+        if not source then
+          vim.notify('No matching source file found for ' .. vim.fs.basename(header), vim.log.levels.WARN)
+          return
+        end
+        local buf = vim.fn.bufadd(source)
+        vim.fn.bufload(buf)
+        if not vim.bo[buf].modifiable then
+          vim.notify(vim.fs.basename(source) .. ' is not modifiable', vim.log.levels.WARN)
+          return
+        end
+        local text = (str:gsub('^\n+', ''):gsub('\n+$', ''))
+        local lines = vim.split(text, '\n', { plain = true })
+        local count = vim.api.nvim_buf_line_count(buf)
+        local tail = vim.api.nvim_buf_get_lines(buf, count - 1, count, false)[1]
+        if count == 1 and tail == '' then
+          vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
+        else
+          if tail ~= '' then
+            table.insert(lines, 1, '')
+          end
+          vim.api.nvim_buf_set_lines(buf, count, count, false, lines)
+        end
+        vim.notify('Added definitions to ' .. vim.fn.fnamemodify(source, ':.') .. ' (unsaved)')
+      end
+
+      require('nt-cpp-tools').setup {
+        preview = { quit = 'q', accept = '<tab>' },
+        custom_define_class_function_commands = {
+          TSCppImplWrite = { output_handle = write_to_source },
+        },
+      }
+      vim.keymap.set('n', '<leader>ci', '<cmd>TSCppImplWrite<CR>', { desc = '[C]ode: [I]mplement member function in source file' })
+      vim.keymap.set('x', '<leader>ci', ':TSCppImplWrite<CR>', { desc = '[C]ode: [I]mplement selected member functions in source file' })
+    end,
+  },
+
+  {
     'stevearc/conform.nvim',
     event = { 'BufWritePre' },
     cmd = { 'ConformInfo' },
@@ -528,7 +1058,7 @@ require('lazy').setup({
     },
   },
 
-  { -- Autocompletion
+  {
     'saghen/blink.cmp',
     event = 'VimEnter',
     version = '1.*',
@@ -546,8 +1076,6 @@ require('lazy').setup({
       },
       'folke/lazydev.nvim',
     },
-    --- @module 'blink.cmp'
-    --- @type blink.cmp.Config
     opts = {
       keymap = {
         preset = 'super-tab',
@@ -565,6 +1093,28 @@ require('lazy').setup({
         default = { 'lsp', 'path', 'snippets', 'lazydev' },
         providers = {
           lazydev = { module = 'lazydev.integrations.blink', score_offset = 100 },
+          lsp = {
+            transform_items = function(_, items)
+              local kinds = vim.lsp.protocol.CompletionItemKind
+              local snippet = vim.lsp.protocol.InsertTextFormat.Snippet
+              local function strip(text)
+                if type(text) == 'string' and text:find('${', 1, true) then
+                  return (text:gsub('%b()', '($0)', 1))
+                end
+                return text
+              end
+              for _, item in ipairs(items) do
+                local callable = item.kind == kinds.Function or item.kind == kinds.Method or item.kind == kinds.Constructor
+                if callable and item.insertTextFormat == snippet then
+                  item.insertText = strip(item.insertText)
+                  if item.textEdit then
+                    item.textEdit.newText = strip(item.textEdit.newText)
+                  end
+                end
+              end
+              return items
+            end,
+          },
         },
       },
       snippets = { preset = 'luasnip' },
@@ -577,7 +1127,6 @@ require('lazy').setup({
     'ellisonleao/gruvbox.nvim',
     priority = 1000,
     config = function()
-      ---@diagnostic disable-next-line: missing-fields
       require('gruvbox').setup {
         terminal_colors = true,
       }
@@ -588,19 +1137,17 @@ require('lazy').setup({
 
   { 'folke/todo-comments.nvim', event = 'VimEnter', dependencies = { 'nvim-lua/plenary.nvim' }, opts = { signs = false } },
 
-  { -- Collection of various small independent plugins/modules
+  {
     'echasnovski/mini.nvim',
     config = function()
       require('mini.ai').setup { n_lines = 500 }
 
       require('mini.surround').setup()
 
-      -- wrap text around visual
       vim.keymap.set('x', 'S', [[:<C-u>lua MiniSurround.add('visual')<CR>]], { silent = true, desc = 'Surround selection' })
 
       local statusline = require 'mini.statusline'
       statusline.setup { use_icons = vim.g.have_nerd_font }
-      ---@diagnostic disable-next-line: duplicate-set-field
       statusline.section_location = function()
         return '%2l:%-2v'
       end
@@ -618,6 +1165,58 @@ require('lazy').setup({
     branch = 'master',
     build = ':TSUpdate',
     main = 'nvim-treesitter.configs',
+    config = function(_, opts)
+      require('nvim-treesitter.configs').setup(opts)
+      require 'nvim-treesitter.query_predicates'
+      local query = vim.treesitter.query
+      local function capture_node(match, id)
+        local node = match[id]
+        if type(node) == 'table' then
+          return node[#node]
+        end
+        return node
+      end
+      local mimetype_languages = {
+        ['importmap'] = 'json',
+        ['module'] = 'javascript',
+        ['application/ecmascript'] = 'javascript',
+        ['text/ecmascript'] = 'javascript',
+      }
+      local info_string_aliases = { ex = 'elixir', pl = 'perl', sh = 'bash', uxn = 'uxntal', ts = 'typescript' }
+      query.add_directive('set-lang-from-mimetype!', function(match, _, bufnr, pred, metadata)
+        local node = capture_node(match, pred[2])
+        if not node then
+          return
+        end
+        local value = vim.treesitter.get_node_text(node, bufnr)
+        local language = mimetype_languages[value]
+        if language then
+          metadata['injection.language'] = language
+        else
+          local parts = vim.split(value, '/', {})
+          metadata['injection.language'] = parts[#parts]
+        end
+      end, { force = true, all = true })
+      query.add_directive('set-lang-from-info-string!', function(match, _, bufnr, pred, metadata)
+        local node = capture_node(match, pred[2])
+        if not node then
+          return
+        end
+        local alias = vim.treesitter.get_node_text(node, bufnr):lower()
+        local filetype = vim.filetype.match { filename = 'a.' .. alias }
+        metadata['injection.language'] = filetype or info_string_aliases[alias] or alias
+      end, { force = true, all = true })
+      query.add_directive('downcase!', function(match, _, bufnr, pred, metadata)
+        local id = pred[2]
+        local node = capture_node(match, id)
+        if not node then
+          return
+        end
+        local text = vim.treesitter.get_node_text(node, bufnr, { metadata = metadata[id] }) or ''
+        metadata[id] = metadata[id] or {}
+        metadata[id].text = string.lower(text)
+      end, { force = true, all = true })
+    end,
     opts = {
       ensure_installed = {
         'bash',
@@ -689,7 +1288,7 @@ require('lazy').setup({
     },
   },
 
-  { -- shows available keybindings as you type
+  {
     'folke/which-key.nvim',
     event = 'VimEnter',
     opts = {
@@ -721,6 +1320,7 @@ require('lazy').setup({
         { '<leader>b', group = '[B]uffer' },
         { '<leader>d', group = '[D]ebug' },
         { '<leader>S', group = '[S]ession' },
+        { '<leader>m', group = '[M]erge conflict' },
         { '<leader>h', group = 'Git [H]unk', mode = { 'n', 'v' } },
       },
     },
@@ -735,38 +1335,17 @@ require('lazy').setup({
       'MunifTanjim/nui.nvim',
     },
     lazy = false,
-    keys = {
-      { '\\', '<cmd>Neotree toggle reveal left<CR>', desc = 'Toggle file tree', silent = true },
-      { '|', '<cmd>Neotree toggle buffers left<CR>', desc = 'Toggle open-buffers tree', silent = true },
-      { '<leader>bb', '<cmd>Neotree toggle buffers left<CR>', desc = '[B]uffers tree', silent = true },
-    },
     opts = {
       popup_border_style = 'single',
       close_if_last_window = true,
-      source_selector = {
-        winbar = true,
-        sources = {
-          { source = 'filesystem', display_name = 'Files' },
-          { source = 'buffers', display_name = 'Buffers' },
+      window = {
+        mappings = {
+          ['<'] = 'none',
+          ['>'] = 'none',
         },
       },
       filesystem = {
         follow_current_file = { enabled = true },
-        window = {
-          mappings = {
-            ['\\'] = 'close_window',
-          },
-        },
-      },
-      buffers = {
-        follow_current_file = { enabled = true },
-        show_unloaded = true,
-        window = {
-          mappings = {
-            ['\\'] = 'close_window',
-            ['d'] = 'buffer_delete',
-          },
-        },
       },
     },
   },
@@ -776,16 +1355,13 @@ require('lazy').setup({
     version = '*',
     event = 'VeryLazy',
     keys = {
-      { '<leader>tt', '<cmd>ToggleTerm<CR>', desc = '[T]oggle [T]erminal' },
+      { '<leader>tt', terminal_focus_or_close, desc = '[T]oggle [T]erminal (focus or close)' },
     },
     opts = {
-      open_mapping = [[<C-\>]],
       direction = 'horizontal',
       size = 15,
       start_in_insert = true,
-      insert_mappings = true,
-      terminal_mappings = true,
-      persist_mode = false, -- always start in insert mode
+      persist_mode = false,
       shade_terminals = false,
       close_on_exit = true,
       float_opts = { border = 'single' },
@@ -842,7 +1418,6 @@ require('lazy').setup({
   },
 
   {
-    -- cmake -DCMAKE_BUILD_TYPE=Debug
     'mfussenegger/nvim-dap',
     dependencies = { 'rcarriga/nvim-dap-ui', 'nvim-neotest/nvim-nio' },
     keys = {
@@ -1049,6 +1624,7 @@ require('lazy').setup({
 
       dap.listeners.after.event_initialized['dapui_config'] = function()
         pcall(vim.cmd, 'Neotree close')
+        close_panel()
         dapui.open()
       end
       dap.listeners.before.event_terminated['dapui_config'] = function()
